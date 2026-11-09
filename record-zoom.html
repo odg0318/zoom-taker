@@ -176,7 +176,7 @@ function measurePeak(stream, ms) {
 
 async function getTabStream() {
   return navigator.mediaDevices.getDisplayMedia({
-    video: true,
+    video: { displaySurface: "browser" },   // hint: open the picker on "tab" — full-screen is the classic mistake
     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
   });
 }
