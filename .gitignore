@@ -1,0 +1,10 @@
+model-cache/
+output/
+.venv/
+recordings/
+__pycache__/
+*.m4a
+*.caf
+*.wav
+*.webm
+.DS_Store
