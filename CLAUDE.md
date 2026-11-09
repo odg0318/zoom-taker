@@ -117,3 +117,31 @@ audiorec record --target-bundle-id us.zoom.xos \
   meeting's dominant language
 - MLX does not run inside Linux containers → Docker uses faster-whisper (CPU,
   int8); backend selection via WHISPER_BACKEND or auto-detection (config.py)
+
+## Browser E2E automation notes (2026-11-09)
+
+Verified via a scripted Chrome (`--remote-debugging-port=9222`) driven over raw
+CDP (`/json` → `webSocketDebuggerUrl`); chrome-devtools MCP is installed for
+interactive use, but MCP servers added mid-session do not reach subagents, so
+automation used raw CDP.
+
+**Verified green**: full page flow 6/6 (server-mode health banner → capture
+starts unattended → record → stop → both tracks auto-upload → Transcribe
+button → job log streaming → done + transcript link; console clean), language
+selector (kr preselected, kr+en/en/cn present), upload→transcribe→content via
+sample wav (transcript contains the exact fixture sentences), Docker +
+faster-whisper, kr+en dual-pass merge (English sentence recovered at [00:03]).
+
+**Not reproducible in automation Chrome** (3 triangulated runs): the captured
+tab's *digital* audio never reaches `getDisplayMedia` on this macOS —
+`--use-fake-device-for-media-stream` poisons tab capture with synthetic beeps,
+generic `--auto-select-desktop-capture-source` resolves to screen/window
+(acoustic room audio without TCC), and tab-specific
+`--auto-select-tab-capture-source-by-title` yields a near-silent sink
+(peak −27dBFS, waveform correlation 0.02 vs source). The recorder page itself
+is exonerated: real-hardware tab capture already measured −8.1dB over 74s of
+Zoom Web, and the same automation captured room audio fine. Manual spot-check
+on real Chrome remains the only way to verify capture content. Useful anyway:
+`video: { displaySurface: "browser" }` (committed, 681b742) makes the share
+picker open on the "tab" category, and `--use-fake-ui-for-media-stream` +
+`--autoplay-policy=no-user-gesture-required` work fine for the non-audio flow.
