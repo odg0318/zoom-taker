@@ -177,7 +177,7 @@ def main():
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("name", help="track prefix under recordings/ (e.g. zoom-live)")
     parser.add_argument("--language", default=config.TRANSCRIBE_LANGUAGE,
-                        help=f"meeting language: {', '.join(transcriber.LANGUAGE_CODES)} (default: %(default)s)")
+                        help=f"meeting language: {', '.join(transcriber.LANGUAGE_CODES)} or a combo like kr+en (default: %(default)s)")
     args = parser.parse_args()
 
     tracks = {}

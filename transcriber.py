@@ -20,13 +20,41 @@ import config
 # UI/env-facing language codes -> Whisper ISO-639-1 codes.
 LANGUAGE_CODES = {"kr": "ko", "en": "en", "cn": "zh"}
 
+LANG_MERGE_OVERLAP = 0.5  # secondary segment overlapping a primary one this much is discarded
+
+
+def parse_language(lang: str) -> list[str]:
+    """"kr" -> ["ko"]; "kr+en" -> ["ko", "en"] (primary pass first).
+
+    A combined value runs one Whisper pass per language and merges: primary
+    segments keep their time windows, secondary segments fill regions the
+    primary pass missed (e.g. pure foreign sentences it dropped). Raises on
+    anything outside LANGUAGE_CODES or longer than two passes.
+    """
+    parts = [p.strip().lower() for p in (lang or "").split("+") if p.strip()]
+    if len(parts) == 2 and parts[0] == parts[1]:
+        parts = parts[:1]
+    if not parts or len(parts) > 2 or any(p not in LANGUAGE_CODES for p in parts):
+        raise SystemExit(
+            f"Unsupported language '{lang}' (expected: kr, en, cn, or a two-language combo like kr+en)"
+        )
+    return [LANGUAGE_CODES[p] for p in parts]
+
+
+def is_valid_language(lang: str) -> bool:
+    try:
+        parse_language(lang)
+        return True
+    except SystemExit:
+        return False
+
 
 def normalize_language(lang: str) -> str:
-    """Map kr/en/cn to Whisper language codes; reject anything else."""
-    code = LANGUAGE_CODES.get((lang or "").strip().lower())
-    if not code:
-        raise SystemExit(f"Unsupported language '{lang}' (expected one of: {', '.join(LANGUAGE_CODES)})")
-    return code
+    """Whisper code for a single-language value (rejects combos)."""
+    codes = parse_language(lang)
+    if len(codes) != 1:
+        raise SystemExit(f"Single language required here, got '{lang}'")
+    return codes[0]
 
 
 def repo_to_cache_name(repo_id: str) -> str:
@@ -81,11 +109,31 @@ def resolve_model(backend: str, repo_id: str | None = None) -> pathlib.Path:
 
 def transcribe(path: pathlib.Path, backend: str | None = None,
                language: str | None = None) -> list[dict]:
-    """Transcribe an audio file into [{start, end, text}, ...] via either backend."""
+    """Transcribe an audio file into [{start, end, text}, ...] via either backend.
+
+    language may be a single code (kr/en/cn) or a two-language combo like
+    "kr+en": one Whisper pass per language — the primary pass keeps its time
+    windows and the secondary pass fills regions the primary missed (e.g.
+    pure foreign sentences the primary-language pass dropped).
+    """
     backend = backend or config.resolve_backend()
-    whisper_lang = normalize_language(language or config.TRANSCRIBE_LANGUAGE)
+    whisper_langs = parse_language(language or config.TRANSCRIBE_LANGUAGE)
     model_dir = resolve_model(backend)
 
+    model = None
+    if backend != "mlx":
+        from faster_whisper import WhisperModel
+        model = WhisperModel(str(model_dir), device="cpu", compute_type=config.WHISPER_COMPUTE_TYPE)
+
+    primary = _transcribe_pass(path, backend, whisper_langs[0], model_dir, model)
+    if len(whisper_langs) == 1:
+        return primary
+    secondary = _transcribe_pass(path, backend, whisper_langs[1], model_dir, model)
+    return _merge_languages(primary, secondary)
+
+
+def _transcribe_pass(path: pathlib.Path, backend: str, whisper_lang: str,
+                     model_dir: pathlib.Path, model=None) -> list[dict]:
     if backend == "mlx":
         import mlx_whisper
 
@@ -95,14 +143,30 @@ def transcribe(path: pathlib.Path, backend: str | None = None,
             for seg in result["segments"]
         ]
 
-    from faster_whisper import WhisperModel
-
-    model = WhisperModel(str(model_dir), device="cpu", compute_type=config.WHISPER_COMPUTE_TYPE)
+    if model is None:
+        from faster_whisper import WhisperModel
+        model = WhisperModel(str(model_dir), device="cpu", compute_type=config.WHISPER_COMPUTE_TYPE)
     segments, _info = model.transcribe(str(path), language=whisper_lang)
     return [
         {"start": float(seg.start), "end": float(seg.end), "text": seg.text.strip()}
         for seg in segments
     ]
+
+
+def _merge_languages(primary: list[dict], secondary: list[dict]) -> list[dict]:
+    """Combine two language passes: primary segments keep their time windows;
+    a secondary segment survives only if the primary pass left its region
+    mostly uncovered (i.e. the primary language dropped that audio)."""
+    out = list(primary)
+    for seg in secondary:
+        duration = max(seg["end"] - seg["start"], 1e-6)
+        covered = sum(
+            max(0.0, min(seg["end"], p["end"]) - max(seg["start"], p["start"]))
+            for p in primary
+        )
+        if covered / duration < LANG_MERGE_OVERLAP:
+            out.append(seg)
+    return sorted(out, key=lambda s: s["start"])
 
 
 def fmt(seconds: float) -> str:
@@ -113,7 +177,7 @@ def main():
     parser = argparse.ArgumentParser(description="Single-file Whisper transcription (backend auto-selected).")
     parser.add_argument("file", type=pathlib.Path, help="audio file to transcribe")
     parser.add_argument("--language", default=config.TRANSCRIBE_LANGUAGE,
-                        help=f"meeting language: {', '.join(LANGUAGE_CODES)} (default: %(default)s)")
+                        help=f"meeting language: {', '.join(LANGUAGE_CODES)} or a combo like kr+en (default: %(default)s)")
     parser.add_argument("--backend", choices=sorted(config.DEFAULT_MODELS), default=None,
                         help="override backend (default: auto-detect)")
     args = parser.parse_args()

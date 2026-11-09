@@ -280,8 +280,8 @@ class Handler(BaseHTTPRequestHandler):
         language = str(payload.get("language", config.TRANSCRIBE_LANGUAGE)).strip().lower()
         if not name:
             return self.send_json(400, {"error": "invalid or missing 'name'"})
-        if language not in transcriber.LANGUAGE_CODES:
-            return self.send_json(400, {"error": f"language must be one of {sorted(transcriber.LANGUAGE_CODES)}"})
+        if not transcriber.is_valid_language(language):
+            return self.send_json(400, {"error": "language must be kr, en, cn, or a combo like kr+en"})
         status, response = start_job(name, language)
         return self.send_json(status, response)
 

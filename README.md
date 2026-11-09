@@ -88,6 +88,12 @@ They map to Whisper language codes internally:
 | `en`  | `en`         |
 | `cn`  | `zh`         |
 
+Two-language combos like **`kr+en`** are also accepted: the file is transcribed
+once per language (2x runtime), the primary pass keeps its time windows, and the
+secondary pass fills only the regions the primary missed — this recovers pure
+foreign sentences that a single-language pass drops (see limitations below).
+Use the meeting's dominant language first, e.g. `TRANSCRIBE_LANGUAGE=kr+en`.
+
 To add another language, extend `LANGUAGE_CODES` in `transcriber.py`.
 
 ## Configuration
@@ -144,7 +150,9 @@ offline without touching the mirror.
   into English instead of transcribing it. Set `TRANSCRIBE_LANGUAGE` to the
   meeting's dominant language; short foreign phrases survive, long foreign
   passages may be lost. Auto-detection (`language=None`) only samples the first
-  30s and does not track mid-file language switches.
+  30s and does not track mid-file language switches. For kr/en-mixed meetings
+  use the **`kr+en`** combo mode, which runs both passes and stitches them —
+  it recovers the dropped sentences at twice the transcription time.
 
 ## License
 
