@@ -40,14 +40,14 @@ Multi-arch images (`linux/amd64` + `linux/arm64`) are built by GitHub Actions an
 published to Docker Hub — no local build needed:
 
 ```bash
-docker pull odg0318/zoom-taker:latest
+docker pull guri/zoom-taker:latest
 
 mkdir -p model-cache recordings output
 docker run --rm -p 8899:8899 \
   -v "$PWD/model-cache:/app/model-cache" \
   -v "$PWD/recordings:/app/recordings" \
   -v "$PWD/output:/app/output" \
-  odg0318/zoom-taker:latest
+  guri/zoom-taker:latest
 ```
 
 Open <http://localhost:8899> and record — recordings and transcripts land in the
@@ -59,11 +59,11 @@ image:
 docker run --rm \
   -v "$PWD/model-cache:/app/model-cache" \
   -v "$PWD/output:/app/output" \
-  odg0318/zoom-taker:latest \
+  guri/zoom-taker:latest \
   python transcriber.py sample_test.aiff
 ```
 
-Prefer compose? Replace `build: .` with `image: odg0318/zoom-taker:latest` in
+Prefer compose? Replace `build: .` with `image: guri/zoom-taker:latest` in
 `docker-compose.yml` and run `docker compose up`.
 
 ## Quick start (macOS, Apple Silicon)
