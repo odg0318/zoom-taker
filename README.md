@@ -34,6 +34,38 @@ The tab-audio capture path needs **no macOS screen-recording (TCC) permission** 
 it uses Chrome's tab-share audio. Requirements: Chrome microphone permission and a
 Zoom meeting that allows joining from the browser client.
 
+## Get started (prebuilt Docker image)
+
+Multi-arch images (`linux/amd64` + `linux/arm64`) are built by GitHub Actions and
+published to Docker Hub — no local build needed:
+
+```bash
+docker pull odg0318/zoom-taker:latest
+
+mkdir -p model-cache recordings output
+docker run --rm -p 8899:8899 \
+  -v "$PWD/model-cache:/app/model-cache" \
+  -v "$PWD/recordings:/app/recordings" \
+  -v "$PWD/output:/app/output" \
+  odg0318/zoom-taker:latest
+```
+
+Open <http://localhost:8899> and record — recordings and transcripts land in the
+mounted folders, and the Whisper model downloads into `model-cache/` on first use
+(the container runs offline afterwards). CLI-only transcription with the same
+image:
+
+```bash
+docker run --rm \
+  -v "$PWD/model-cache:/app/model-cache" \
+  -v "$PWD/output:/app/output" \
+  odg0318/zoom-taker:latest \
+  python transcriber.py sample_test.aiff
+```
+
+Prefer compose? Replace `build: .` with `image: odg0318/zoom-taker:latest` in
+`docker-compose.yml` and run `docker compose up`.
+
 ## Quick start (macOS, Apple Silicon)
 
 ```bash
@@ -48,7 +80,7 @@ Open <http://localhost:8899>, run the self-check, join the Zoom meeting in a
 browser tab, then: **Start recording** → pick the Zoom tab → check **Share audio**
 → **Stop & save** (recordings upload automatically) → **Transcribe**.
 
-## Quick start (Docker, any host)
+## Quick start (Docker, build from source)
 
 ```bash
 docker compose up --build             # http://localhost:8899
