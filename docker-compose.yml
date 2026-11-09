@@ -1,0 +1,24 @@
+services:
+  zoom-taker:
+    build: .
+    ports:
+      - "8899:8899"
+    volumes:
+      # Model cache: survives container restarts — the HF mirror/proxy is only
+      # needed for the very first download.
+      - ./model-cache:/app/model-cache
+      # Browser recordings land here via the upload endpoint.
+      - ./recordings:/app/recordings
+      # Transcript markdown is written here.
+      - ./output:/app/output
+    environment:
+      # faster-whisper (CPU) is the Docker backend; MLX does not run in Linux containers.
+      WHISPER_BACKEND: ${WHISPER_BACKEND:-faster}
+      WHISPER_MODEL: ${WHISPER_MODEL:-}
+      TRANSCRIBE_LANGUAGE: ${TRANSCRIBE_LANGUAGE:-kr}
+      # Point HF_ENDPOINT at your HuggingFace mirror/proxy if huggingface.co is unreachable.
+      HF_ENDPOINT: ${HF_ENDPOINT:-}
+      HF_TOKEN: ${HF_TOKEN:-}
+      WHISPER_COMPUTE_TYPE: ${WHISPER_COMPUTE_TYPE:-int8}
+    # On Linux hosts, uncomment to avoid root-owned files in the mounted directories:
+    # user: "1000:1000"

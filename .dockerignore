@@ -1,0 +1,14 @@
+.git/
+.venv/
+model-cache/
+recordings/
+output/
+__pycache__/
+*.webm
+*.caf
+*.m4a
+*.wav
+*.aiff
+!sample_test.aiff
+.DS_Store
+CLAUDE.md
