@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Zoom Web 2-Track Recorder</title>
+<style>
+  :root { --ok:#0a7d38; --warn:#b45309; --bad:#b91c1c; --ink:#1c1917; --mut:#78716c; }
+  body { font: 15px/1.6 -apple-system, "Segoe UI", sans-serif; color:var(--ink);
+         max-width: 640px; margin: 40px auto; padding: 0 16px; }
+  h1 { font-size: 22px; } h2 { font-size: 16px; margin-top: 28px; border-bottom: 1px solid #e7e5e4; padding-bottom: 6px; }
+  section { margin-bottom: 8px; }
+  ul#checks { list-style: none; padding: 0; }
+  ul#checks li { padding: 3px 0; }
+  .ok { color: var(--ok); font-weight: 600; } .warn { color: var(--warn); font-weight: 600; } .bad { color: var(--bad); font-weight: 600; }
+  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid #d6d3d1;
+           background: #fff; cursor: pointer; margin: 4px 6px 4px 0; }
+  button.primary { background: #1c1917; color: #fff; border-color: #1c1917; }
+  button:disabled { opacity: .4; cursor: default; }
+  #timer { font-size: 34px; font-variant-numeric: tabular-nums; margin: 10px 0; }
+  #status { color: var(--mut); min-height: 24px; white-space: pre-line; }
+  label { display: block; margin: 10px 0 4px; color: var(--mut); font-size: 13px; }
+  input, select { font: inherit; padding: 8px; width: 320px; border: 1px solid #d6d3d1; border-radius: 8px; }
+  ol.notes { color: var(--mut); font-size: 13px; padding-left: 18px; }
+  code { background:#f5f5f4; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  #mode { color: var(--mut); font-size: 13px; margin-top: 4px; }
+  #job-log { background:#f5f5f4; border-radius: 8px; padding: 10px; font-size: 12px;
+             line-height: 1.5; max-height: 220px; overflow-y: auto; white-space: pre-wrap; display: none; }
+</style>
+</head>
+<body>
+<h1>Zoom Web 2-Track Recorder</h1>
+<p style="color:var(--mut)">Records tab audio (REMOTE) + microphone (ME) simultaneously as webm, then transcribes with Whisper.<br>
+Tab-audio capture works without any OS screen-recording permission.</p>
+<div id="mode">Checking for transcription server…</div>
+
+<section>
+  <h2>1. Permission self-check</h2>
+  <ul id="checks"></ul>
+  <button id="btn-mic-test">Test microphone (2s)</button>
+  <button id="btn-tab-test">Test tab audio (3s)</button>
+  <span id="level"></span>
+</section>
+
+<section>
+  <h2>2. Record</h2>
+  <label for="meeting-name">Meeting name (file prefix — stored as <code>{name}-remote.webm</code>, <code>{name}-me.webm</code>)</label>
+  <input id="meeting-name" placeholder="meeting-YYYYMMDD-HHMM">
+  <div style="margin-top:12px">
+    <button id="btn-start" class="primary">● Start recording (pick tab → mic)</button>
+    <button id="btn-stop" disabled>■ Stop &amp; save</button>
+  </div>
+  <div id="timer">00:00</div>
+  <div id="status"></div>
+</section>
+
+<section id="transcribe-section" style="display:none">
+  <h2>3. Transcribe</h2>
+  <label for="lang">Meeting language</label>
+  <select id="lang">
+    <option value="kr" selected>Korean (kr)</option>
+    <option value="en">English (en)</option>
+    <option value="cn">Chinese (cn)</option>
+  </select>
+  <div style="margin-top:12px">
+    <button id="btn-transcribe">Transcribe last recording</button>
+    <span id="job-status" style="color:var(--mut)"></span>
+    <a id="transcript-link" style="display:none"></a>
+  </div>
+  <pre id="job-log"></pre>
+</section>
+
+<section>
+  <h2>How to use / notes</h2>
+  <ol class="notes">
+    <li>Join the Zoom meeting with the <b>browser client</b> (invite link → "Join from your browser").</li>
+    <li>Click start → pick the <b>Zoom tab</b> in the share dialog and check <b>"Share audio"</b> (share the <b>tab</b>, not the whole screen!).</li>
+    <li>Never <b>mute the Zoom tab</b> while recording (muted tab = silent recording). Switching to other tabs is fine.</li>
+    <li>Only record meetings you are allowed to record.</li>
+    <li>Server mode: recordings are uploaded to the server's <code>recordings/</code> directory and you can transcribe right from this page.<br>
+        Local mode (opened as a file): recordings are saved via the browser dialog — then run <code>python transcribe_meeting.py &lt;name&gt;</code> yourself.</li>
+  </ol>
+</section>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+
+function addCheck(label, state, cls) {
+  $("checks").insertAdjacentHTML("beforeend",
+    `<li>${label}: <span class="${cls}">${state}</span></li>`);
+}
+function setStatus(msg) { $("status").textContent = msg; }
+
+/* ── 0. Server mode detection ───────────────────────────── */
+let serverMode = false, currentName = null;
+
+(async () => {
+  try {
+    const res = await fetch("api/health", { signal: AbortSignal.timeout(1500) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const h = await res.json();
+    serverMode = true;
+    $("mode").textContent = h.backend
+      ? `Connected to transcription server — backend: ${h.backend} (model: ${h.model})`
+      : "Connected to transcription server — but no STT backend is installed there.";
+    $("transcribe-section").style.display = "";
+  } catch {
+    $("mode").textContent = "Local mode — recordings are saved via the browser dialog; " +
+      "transcribe from the terminal with: python transcribe_meeting.py <name>";
+  }
+})();
+
+/* ── 1. Self-check (runs on load) ───────────────────────── */
+(async () => {
+  addCheck("secure context", window.isSecureContext ? "OK" : "failed — https or localhost required",
+           window.isSecureContext ? "ok" : "bad");
+  try {
+    const mic = await navigator.permissions.query({ name: "microphone" });
+    addCheck("microphone permission", mic.state,
+             mic.state === "granted" ? "ok" : mic.state === "denied" ? "bad" : "warn");
+  } catch (e) { addCheck("microphone permission", "unknown", "warn"); }
+  try {
+    const d = await navigator.permissions.query({ name: "display-capture" });
+    addCheck("display-capture", d.state, d.state === "denied" ? "bad" : "ok");
+  } catch (e) { addCheck("display-capture", "unknown (measured at start instead)", "warn"); }
+})();
+
+/* Microphone test: open for 2s, measure peak RMS (dBFS) */
+$("btn-mic-test").onclick = async () => {
+  $("level").textContent = "measuring microphone…";
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const db = await measurePeak(s, 2000);
+    s.getTracks().forEach(t => t.stop());
+    $("level").textContent = `microphone peak ${db.toFixed(0)} dBFS ` +
+      (db > -60 ? "✔" : "(quiet — say something)");
+  } catch (e) { $("level").textContent = `microphone failed: ${e.name}`; }
+};
+
+/* Tab audio test: capture a tab for 3s, check audio track + level */
+$("btn-tab-test").onclick = async () => {
+  $("level").textContent = "pick a tab to share…";
+  const s = await getTabStream().catch(e => { $("level").textContent = `failed: ${e.name}`; return null; });
+  if (!s) return;
+  if (!s.getAudioTracks().length) {
+    s.getTracks().forEach(t => t.stop());
+    $("level").textContent = "no audio track — make sure you picked 'tab' and checked 'share audio'";
+    return;
+  }
+  $("level").textContent = "measuring tab audio…";
+  const db = await measurePeak(s, 3000);
+  s.getTracks().forEach(t => t.stop());
+  $("level").textContent = `tab audio OK — peak ${db.toFixed(0)} dBFS ` +
+    (db > -70 ? "✔" : "(is the selected tab playing any sound?)");
+};
+
+function measurePeak(stream, ms) {
+  const ctx = new AudioContext();
+  const src = ctx.createMediaStreamSource(stream);
+  const an = ctx.createAnalyser();
+  an.fftSize = 2048;
+  src.connect(an);
+  const buf = new Float32Array(an.fftSize);
+  let peak = 0;
+  return new Promise(resolve => {
+    const t0 = performance.now();
+    (function poll() {
+      an.getFloatTimeDomainData(buf);
+      for (const v of buf) peak = Math.max(peak, Math.abs(v));
+      if (performance.now() - t0 < ms) requestAnimationFrame(poll);
+      else { ctx.close(); resolve(20 * Math.log10(peak || 1e-6)); }
+    })();
+  });
+}
+
+async function getTabStream() {
+  return navigator.mediaDevices.getDisplayMedia({
+    video: true,
+    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+  });
+}
+
+/* ── 2. Recording ───────────────────────────────────────── */
+let recRemote, recMe, displayStream, micStream, t0, timerId, pollTimer;
+
+function meetingName() {
+  return $("meeting-name").value.trim() ||
+    "meeting-" + new Date().toLocaleString("sv-SE").replace(/[\s:]/g, "-").slice(0, 16);
+}
+
+/* Same alphabet the server accepts; server re-validates (defense in depth). */
+function sanitizeName(raw) {
+  const s = raw.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^[.\-]+|[.\-]+$/g, "").slice(0, 80);
+  return s || "meeting";
+}
+
+$("btn-start").onclick = async () => {
+  setStatus("1/3 — pick the Zoom tab in the share dialog and check 'share audio'…");
+  displayStream = await getTabStream().catch(e => { setStatus(`start failed: ${e.name}`); return null; });
+  if (!displayStream) return;
+  if (!displayStream.getAudioTracks().length) {
+    displayStream.getTracks().forEach(t => t.stop());
+    setStatus("no audio track — pick 'tab' + check 'share audio', then try again");
+    return;
+  }
+  setStatus("2/3 — tab audio connected. Opening microphone…");
+  micStream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true }   // AEC removes my own echo from the tab track
+  }).catch(e => {
+    displayStream.getTracks().forEach(t => t.stop());
+    setStatus(`failed to open microphone: ${e.name} — tab share cancelled`);
+    return null;
+  });
+  if (!micStream) return;
+
+  const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+    ? "audio/webm;codecs=opus" : "audio/webm";
+  recRemote = new MediaRecorder(new MediaStream(displayStream.getAudioTracks()), { mimeType: mime });
+  recMe     = new MediaRecorder(new MediaStream(micStream.getAudioTracks()),     { mimeType: mime });
+  recRemote.chunks = []; recMe.chunks = [];
+  recRemote.ondataavailable = e => e.data.size && recRemote.chunks.push(e.data);
+  recMe.ondataavailable     = e => e.data.size && recMe.chunks.push(e.data);
+
+  $("btn-start").disabled = true;
+  $("btn-stop").disabled = false;
+  $("meeting-name").disabled = true;
+  t0 = Date.now();
+  timerId = setInterval(() => {
+    const s = Math.floor((Date.now() - t0) / 1000);
+    $("timer").textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  }, 500);
+  recRemote.start(1000); recMe.start(1000);
+  setStatus("3/3 — recording. Do not mute the Zoom tab. Press ■ to stop.");
+};
+
+$("btn-stop").onclick = async () => {
+  $("btn-stop").disabled = true;
+  clearInterval(timerId);
+  const done = r => new Promise(res => { r.onstop = res; r.stop(); });
+  await Promise.all([done(recRemote), done(recMe)]);
+  displayStream.getTracks().forEach(t => t.stop());
+  micStream.getTracks().forEach(t => t.stop());
+
+  const name = sanitizeName(meetingName());
+  $("meeting-name").value = name;               // show what was actually stored
+  currentName = name;
+  const remoteBlob = new Blob(recRemote.chunks, { type: "audio/webm" });
+  const meBlob     = new Blob(recMe.chunks,     { type: "audio/webm" });
+
+  if (serverMode) {
+    setStatus("uploading to server…");
+    try {
+      const r1 = await uploadBlob(remoteBlob, name, "remote");
+      const r2 = await uploadBlob(meBlob, name, "me");
+      setStatus(`saved ${r1.saved} (${r1.bytes} bytes)\nsaved ${r2.saved} (${r2.bytes} bytes)\n` +
+                "ready to transcribe below.");
+    } catch (e) {
+      setStatus(`upload failed: ${e.message}\nfallback: saving via browser dialog…`);
+      await localSave(remoteBlob, meBlob, name);
+    }
+  } else {
+    await localSave(remoteBlob, meBlob, name);
+  }
+  $("btn-start").disabled = false;
+  $("meeting-name").disabled = false;
+};
+
+async function uploadBlob(blob, name, track) {
+  const res = await fetch(`api/upload?name=${encodeURIComponent(name)}&track=${track}&ext=webm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/octet-stream" },
+    body: blob,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+async function localSave(remoteBlob, meBlob, name) {
+  setStatus("saving…");
+  const r1 = await saveBlob(remoteBlob, `${name}-remote.webm`);
+  const r2 = await saveBlob(meBlob, `${name}-me.webm`);
+  setStatus(`done: ${name}-remote.webm (${r1}) / ${name}-me.webm (${r2})\n` +
+            "to transcribe: python transcribe_meeting.py " + name);
+}
+
+async function saveBlob(blob, filename) {
+  if (window.showSaveFilePicker) {
+    try {
+      const h = await showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description: "WebM audio", accept: { "audio/webm": [".webm"] } }]
+      });
+      const w = await h.createWritable();
+      await w.write(blob); await w.close();
+      return "saved";
+    } catch (e) {
+      if (e.name === "AbortError") return "cancelled (falling back to download)";
+      /* other errors fall through to the download fallback */
+    }
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  return "saved to downloads";
+}
+
+/* ── 3. Transcribe (server mode only) ───────────────────── */
+$("btn-transcribe").onclick = async () => {
+  if (!currentName) { $("job-status").textContent = "record something first"; return; }
+  const language = $("lang").value;
+  $("btn-transcribe").disabled = true;
+  $("transcript-link").style.display = "none";
+  $("job-log").style.display = "block";
+  try {
+    const res = await fetch("api/transcribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: currentName, language }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 409) {
+      $("job-status").textContent = "another transcription is running — following it";
+      pollJob(data.job);
+      return;
+    }
+    if (!res.ok) {
+      $("job-status").textContent = `failed: ${data.error || res.status}`;
+      $("btn-transcribe").disabled = false;
+      return;
+    }
+    pollJob(data.job);
+  } catch (e) {
+    $("job-status").textContent = `failed: ${e.message}`;
+    $("btn-transcribe").disabled = false;
+  }
+};
+
+function pollJob(jobId) {
+  $("job-status").textContent = "queued…";
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    let res;
+    try { res = await fetch(`api/status?job=${encodeURIComponent(jobId)}`); } catch { return; }
+    if (!res.ok) return;
+    const job = await res.json();
+    $("job-log").textContent = (job.log || []).join("\n");
+    if (job.state === "done" || job.state === "error") {
+      clearInterval(pollTimer);
+      $("btn-transcribe").disabled = false;
+      if (job.state === "done" && job.transcript) {
+        $("job-status").textContent = "done.";
+        const link = $("transcript-link");
+        link.href = job.transcript;
+        link.textContent = "open transcript";
+        link.style.display = "inline";
+      } else {
+        $("job-status").textContent = "failed — see the log below";
+      }
+    } else {
+      $("job-status").textContent = job.state + "…";
+    }
+  }, 2000);
+}
+</script>
+</body>
+</html>
