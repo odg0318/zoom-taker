@@ -137,6 +137,14 @@ offline without touching the mirror.
   reach it — do not expose it to untrusted networks.
 - The hallucination filters were tuned on Korean meetings; other languages may
   need threshold tweaks (constants at the top of `transcribe_meeting.py`).
+- **Mixed-language meetings**: Whisper's `language` parameter biases the whole
+  file toward one language — measured on a kr/en/zh mixed sample, forcing `kr`
+  drops pure English sentences and transliterates in-sentence English words
+  ("launch date" → "론치 데이트"), while forcing `en` translates foreign speech
+  into English instead of transcribing it. Set `TRANSCRIBE_LANGUAGE` to the
+  meeting's dominant language; short foreign phrases survive, long foreign
+  passages may be lost. Auto-detection (`language=None`) only samples the first
+  30s and does not track mid-file language switches.
 
 ## License
 

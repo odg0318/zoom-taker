@@ -109,5 +109,11 @@ audiorec record --target-bundle-id us.zoom.xos \
   segments sit at −56dB vs −38dB speech peak; longest verified session 112s
 - Python ≥3.13 removed `audioop` → `pcm_rms_db` falls back to an array-based RMS
   with identical math; Docker image pins python:3.11-slim
+- Mixed-language meetings (measured, TTS kr/en/zh sample): forcing one language
+  biases the whole file — kr drops pure English sentences and transliterates
+  in-sentence English ("launch date"→"론치 데이트"); en TRANSLATES foreign speech
+  instead of transcribing; language=None auto-detects once from the first 30s and
+  does not follow mid-file switches. Chinese text survives ko-forcing; use the
+  meeting's dominant language
 - MLX does not run inside Linux containers → Docker uses faster-whisper (CPU,
   int8); backend selection via WHISPER_BACKEND or auto-detection (config.py)
