@@ -1,10 +1,11 @@
 .git/
 .github/
-.venv/
 model-cache/
 recordings/
 output/
-__pycache__/
+bin/
+build/
+third_party/whisper.cpp/.git
 *.webm
 *.caf
 *.m4a

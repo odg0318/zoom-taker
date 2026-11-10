@@ -1,8 +1,8 @@
 model-cache/
 output/
-.venv/
 recordings/
-__pycache__/
+bin/
+build/
 *.m4a
 *.caf
 *.wav
