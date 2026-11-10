@@ -118,7 +118,7 @@ docker run --rm \
 ```bash
 zoom-taker                       # serve (default)
 zoom-taker serve                 # web server + recorder page
-zoom-taker meeting <name>        # full pipeline: recordings/<name>-{system|mic}.* → transcript
+zoom-taker meeting <name>        # full pipeline over recordings/<name>-{system|remote|mic|me}.{caf|webm|m4a|wav}
 zoom-taker transcribe <file>     # single audio file, no speaker labels
 zoom-taker download [model]      # fetch the GGML model into the cache
 
