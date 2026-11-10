@@ -12,13 +12,12 @@ services:
       # Transcript markdown is written here.
       - ./output:/app/output
     environment:
-      # faster-whisper (CPU) is the Docker backend; MLX does not run in Linux containers.
-      WHISPER_BACKEND: ${WHISPER_BACKEND:-faster}
+      # GGML model file name (default: ggml-large-v3-turbo-q5_0.bin, 574MB)
+      # or a path inside the model-cache volume.
       WHISPER_MODEL: ${WHISPER_MODEL:-}
       TRANSCRIBE_LANGUAGE: ${TRANSCRIBE_LANGUAGE:-kr}
       # Point HF_ENDPOINT at your HuggingFace mirror/proxy if huggingface.co is unreachable.
       HF_ENDPOINT: ${HF_ENDPOINT:-}
       HF_TOKEN: ${HF_TOKEN:-}
-      WHISPER_COMPUTE_TYPE: ${WHISPER_COMPUTE_TYPE:-int8}
     # On Linux hosts, uncomment to avoid root-owned files in the mounted directories:
     # user: "1000:1000"

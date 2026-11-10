@@ -13,7 +13,7 @@ build: whisper-lib
 	go build -tags $(TAG) -o bin/zoom-taker ./cmd/zoom-taker
 
 whisper-src:
-	git submodule update --init --depth 1 $(WHISPER_DIR)
+	@test -f $(WHISPER_DIR)/CMakeLists.txt || git submodule update --init --depth 1 $(WHISPER_DIR)
 
 # Apple cmake defaults (Metal + Accelerate BLAS, shaders embedded in the
 # static lib) are required by the binding's darwin link flags — do not

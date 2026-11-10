@@ -1,5 +1,7 @@
 .git/
 .github/
+.venv/
+.claude/
 model-cache/
 recordings/
 output/
