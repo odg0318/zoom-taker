@@ -202,6 +202,18 @@ export HF_ENDPOINT='https://your-hf-mirror.example.com'
 ./bin/zoom-taker download
 ```
 
+The value replaces the whole base URL — the model is fetched from
+`$HF_ENDPOINT/ggerganov/whisper.cpp/resolve/main/<model>`, so a proxy with a
+path prefix (e.g. an Artifactory remote repo mirroring the HuggingFace layout)
+works too:
+
+```bash
+export HF_ENDPOINT='https://artifactory.example.com/artifactory/hf-remote'
+```
+
+Mirrors that require auth take `HF_TOKEN` (sent as a Bearer header). Failed
+downloads resume from the `.part` file, so a flaky link just needs a retry.
+
 The model lives entirely in `ZOOM_TAKER_MODEL_CACHE_DIR` — copy that directory
 to the target machine (or mount it as a Docker volume) and every later run works
 offline without touching the mirror.
