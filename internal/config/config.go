@@ -18,16 +18,16 @@ const ModelRepo = "ggerganov/whisper.cpp"
 const DefaultModel = "ggml-large-v3-turbo-q5_0.bin"
 
 type Config struct {
-	Host            string
-	Port            int
-	ModelCacheDir   string
-	RecordingsDir   string
-	OutputDir       string
-	Language        string // TRANSCRIBE_LANGUAGE or LANGUAGE; "kr"|"en"|"cn"|"kr+en"
-	Model           string // WHISPER_MODEL or MODEL: GGML file name or local path
-	MaxUploadMB     int
-	HFEndpoint      string // optional mirror/proxy (huggingface-compatible)
-	HFToken         string // optional, gated/private repos only
+	Host          string
+	Port          int
+	ModelCacheDir string
+	RecordingsDir string
+	OutputDir     string
+	Language      string // TRANSCRIBE_LANGUAGE or LANGUAGE; "kr"|"en"|"cn"|"kr+en"
+	Model         string // WHISPER_MODEL or MODEL: GGML file name or local path
+	MaxUploadMB   int
+	HFEndpoint    string // optional mirror/proxy (huggingface-compatible)
+	HFToken       string // optional, gated/private repos only
 }
 
 func env(key, alt, def string) string {
