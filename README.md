@@ -1,7 +1,9 @@
 # zoom-taker
 
-Record Zoom meetings locally as two audio tracks, transcribe them with Whisper,
-and merge them into a speaker-labeled markdown transcript — all on your own machine.
+Record Zoom meetings locally as two audio tracks, transcribe them with
+[whisper.cpp](https://github.com/ggml-org/whisper.cpp), and merge them into a
+speaker-labeled markdown transcript — all on your own machine, from a single
+self-contained binary.
 
 > ⚠️ Only record meetings you are allowed to record. Respect your organization's
 > policies and local law; this tool does no privileged capture — it records the
@@ -13,11 +15,11 @@ and merge them into a speaker-labeled markdown transcript — all on your own ma
 Zoom meeting (browser client)
    │
    ├─ tab audio ──► REMOTE track ─┐  record-zoom.html (MediaRecorder, webm/opus)
-   └─ microphone ► ME track      ─┘  → uploaded to server.py → recordings/
+   └─ microphone ► ME track      ─┘  → uploaded to the server → recordings/
                                         │
                                         ▼
-                          transcribe_meeting.py (per track)
-                          · Whisper transcription (MLX on macOS / faster-whisper in Docker)
+                          zoom-taker (per track, in-process)
+                          · whisper.cpp transcription (Metal on macOS / CPU in Docker)
                           · hallucination cleaning: silence overlap, repeat loops,
                             timestamp drift, quiet segments (RMS energy)
                           · speaker bleed merge: mic text matching the tab track in
@@ -51,16 +53,16 @@ docker run --rm -p 8899:8899 \
 ```
 
 Open <http://localhost:8899> and record — recordings and transcripts land in the
-mounted folders, and the Whisper model downloads into `model-cache/` on first use
-(the container runs offline afterwards). CLI-only transcription with the same
-image:
+mounted folders, and the Whisper model (GGML `large-v3-turbo` q5_0, 574MB)
+downloads into `model-cache/` on first use (the container runs offline
+afterwards). CLI-only transcription with the same image:
 
 ```bash
 docker run --rm \
   -v "$PWD/model-cache:/app/model-cache" \
   -v "$PWD/output:/app/output" \
   guri/zoom-taker:latest \
-  python transcriber.py sample_test.aiff
+  zoom-taker transcribe sample_test.aiff
 ```
 
 Prefer compose? Replace `build: .` with `image: guri/zoom-taker:latest` in
@@ -68,12 +70,15 @@ Prefer compose? Replace `build: .` with `image: guri/zoom-taker:latest` in
 
 ## Quick start (macOS, Apple Silicon)
 
-```bash
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-.venv/bin/python downloader.py        # downloads the model into ./model-cache (once)
+Native builds use whisper.cpp with Metal (shaders are embedded in the binary —
+no runtime model files needed):
 
-.venv/bin/python server.py            # http://localhost:8899
+```bash
+brew install go cmake ffmpeg
+make                    # whisper.cpp static libs + bin/zoom-taker
+
+./bin/zoom-taker download   # downloads the model into ./model-cache (once)
+./bin/zoom-taker serve      # http://localhost:8899
 ```
 
 Open <http://localhost:8899>, run the self-check, join the Zoom meeting in a
@@ -83,30 +88,36 @@ browser tab, then: **Start recording** → pick the Zoom tab → check **Share a
 ## Quick start (Docker, build from source)
 
 ```bash
-docker compose up --build             # http://localhost:8899
+git clone --recurse-submodules https://github.com/odg0318/zoom-taker
+cd zoom-taker
+docker compose up --build               # http://localhost:8899
 ```
 
 `model-cache/`, `recordings/`, and `output/` are volume-mounted, so recordings,
 transcripts, and the downloaded model all persist on the host. Inside the Linux
-container the STT backend is faster-whisper (CPU); the first transcription
-downloads the model into `./model-cache/` — afterwards the container runs offline.
+container whisper.cpp runs on CPU; the first transcription downloads the model
+into `./model-cache/` — afterwards the container runs offline.
 
 Transcribe without the browser:
 
 ```bash
-docker compose run --rm zoom-taker python transcriber.py sample_test.aiff
+docker compose run --rm zoom-taker zoom-taker transcribe sample_test.aiff
 ```
 
 ## CLI
 
 ```bash
-# full meeting pipeline (both tracks, cleaning, merge):
-python transcribe_meeting.py <meeting-name> [--language kr|en|cn]
+zoom-taker                       # serve (default)
+zoom-taker serve                 # web server + recorder page
+zoom-taker meeting <name>        # full pipeline: recordings/<name>-{system|mic}.* → transcript
+zoom-taker transcribe <file>     # single audio file, no speaker labels
+zoom-taker download [model]      # fetch the GGML model into the cache
 
-# single audio file:
-python transcriber.py <file> [--language kr|en|cn] [--backend mlx|faster]
-./run.sh sample_test.aiff              # smoke test with the bundled sample
+./bin/zoom-taker transcribe sample_test.aiff   # smoke test with the bundled sample
 ```
+
+All commands accept `--language` (where it applies) and read the standard
+configuration from the environment.
 
 ## Languages
 
@@ -126,7 +137,7 @@ secondary pass fills only the regions the primary missed — this recovers pure
 foreign sentences that a single-language pass drops (see limitations below).
 Use the meeting's dominant language first, e.g. `TRANSCRIBE_LANGUAGE=kr+en`.
 
-To add another language, extend `LANGUAGE_CODES` in `transcriber.py`.
+To add another language, extend `languageCodes` in `internal/pipeline/language.go`.
 
 ## Configuration
 
@@ -135,17 +146,29 @@ Docker names):
 
 | variable | default | meaning |
 |----------|---------|---------|
-| `WHISPER_BACKEND` | auto | `mlx` (macOS/Apple Silicon) or `faster` (CPU); auto-detects the installed package |
-| `WHISPER_MODEL` | per backend | HF repo id (`mlx-community/whisper-large-v3-turbo` / `mobiuslabsgmbh/faster-whisper-large-v3-turbo`) |
+| `WHISPER_MODEL` | `ggml-large-v3-turbo-q5_0.bin` | GGML file name in the HF `ggerganov/whisper.cpp` repo, or a path to a local `.bin` |
 | `MODEL_CACHE_DIR` | `./model-cache` | local model cache (safe to copy between machines) |
 | `RECORDINGS_DIR` | `./recordings` | where uploads are stored |
 | `OUTPUT_DIR` | `./output` | where transcripts are written |
-| `TRANSCRIBE_LANGUAGE` | `kr` | `kr`/`en`/`cn` |
+| `TRANSCRIBE_LANGUAGE` | `kr` | `kr`/`en`/`cn` or a combo like `kr+en` |
 | `HF_ENDPOINT` | — | HuggingFace-compatible endpoint (mirror/proxy) |
-| `HF_TOKEN` | — | HuggingFace token (gated repos) |
+| `HF_TOKEN` | — | HuggingFace token (private mirrors only; the model repo is public) |
 | `HOST` / `PORT` | `127.0.0.1` / `8899` | server bind address (Docker sets `HOST=0.0.0.0`) |
 | `MAX_UPLOAD_MB` | `2048` | upload size cap |
-| `WHISPER_COMPUTE_TYPE` | `int8` | faster-whisper compute type |
+
+## Building from source
+
+```bash
+make build     # whisper.cpp static libs + bin/zoom-taker (Metal on macOS, CPU on Linux)
+make test      # full test suite (needs whisper-lib)
+make test-pure # tests without cgo (no whisper.cpp build needed)
+make vet       # go vet for both pure and cgo builds
+```
+
+The whisper.cpp source is pinned as a git submodule (`third_party/whisper.cpp`);
+the Go binding for it lives in the same tree and is linked via a `replace`
+directive. Server pages, error strings, and filter behavior are covered by
+wire/behavior parity tests.
 
 ## Corporate networks / offline use
 
@@ -155,7 +178,7 @@ download:
 
 ```bash
 export HF_ENDPOINT='https://your-hf-mirror.example.com'
-python downloader.py
+./bin/zoom-taker download
 ```
 
 The model lives entirely in `MODEL_CACHE_DIR` — copy that directory to the
@@ -170,22 +193,20 @@ offline without touching the mirror.
   tabs is fine.
 - Your own voice can echo into the tab track via Zoom's server echo; the bleed
   filter catches most of it — headphones are the reliable mitigation.
-- One transcription runs at a time; long meetings on the CPU backend take a while.
-- `server.py` is built for localhost use and accepts uploads from anyone who can
+- One transcription runs at a time; long meetings on CPU take a while. Cancel
+  via Ctrl-C — decoding stops at the next ~30s encoder window boundary.
+- The server is built for localhost use and accepts uploads from anyone who can
   reach it — do not expose it to untrusted networks.
 - The hallucination filters were tuned on Korean meetings; other languages may
-  need threshold tweaks (constants at the top of `transcribe_meeting.py`).
+  need threshold tweaks (constants at the top of `internal/pipeline/clean.go`).
 - **Mixed-language meetings**: Whisper's `language` parameter biases the whole
-  file toward one language — measured on a kr/en/zh mixed sample, forcing `kr`
-  drops pure English sentences and transliterates in-sentence English words
-  ("launch date" → "론치 데이트"), while forcing `en` translates foreign speech
-  into English instead of transcribing it. Set `TRANSCRIBE_LANGUAGE` to the
-  meeting's dominant language; short foreign phrases survive, long foreign
-  passages may be lost. Auto-detection (`language=None`) only samples the first
-  30s and does not track mid-file language switches. For kr/en-mixed meetings
-  use the **`kr+en`** combo mode, which runs both passes and stitches them —
-  it recovers the dropped sentences at twice the transcription time.
+  file toward one language. Forcing the dominant language worked well in
+  practice on the whisper.cpp `large-v3-turbo` engine — including in-sentence
+  English inside Korean speech — but long foreign passages may still be lost.
+  Auto-detection only samples the first ~30s and does not track mid-file
+  language switches. For kr/en-mixed meetings use the **`kr+en`** combo mode,
+  which runs both passes and stitches them (2x transcription time).
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) — whisper.cpp and its Go binding are MIT as well.

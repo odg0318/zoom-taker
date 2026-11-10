@@ -10,3 +10,5 @@ build/
 # committed test fixtures for the pipeline unit tests
 !internal/pipeline/testdata/*.wav
 .DS_Store
+# leftover from the removed Python implementation (kept on disk, ignored)
+.venv/
