@@ -25,6 +25,11 @@ is the user-facing doc and configuration reference.
 - [x] Docker multi-stage CGO build (native build verified; compose E2E skipped
       this round per user — macOS runs the native Metal binary, CI builds the
       images on push)
+- [x] Release workflow (.github/workflows/release.yml): v* tag push builds
+      binaries on native runners (macOS arm64/Intel, Linux amd64/arm64 — cgo
+      rules out cross-compilation, so no goreleaser cross builds) and attaches
+      zip/tar.gz + checksums to the GitHub Release; Docker images are published
+      by docker-publish.yml on the same tags
 - [x] First-run wizard on serve (internal/setup): creates the ~/.zoom-taker data
       dirs and downloads the model — Y/n prompt on a real terminal, automatic
       for pipes//dev/null/Docker, opt-out via `serve --no-setup`; resumable

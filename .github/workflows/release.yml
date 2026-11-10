@@ -1,0 +1,91 @@
+# Build release binaries on native runners and attach them to a GitHub
+# Release.
+#
+# whisper.cpp is cgo, so cross-compilation is off the table — each target
+# builds on its own native runner (cmake + the platform C toolchain), the
+# archives are collected via artifacts, and one job publishes the release.
+#
+# Triggers:
+#   - v* tag push  → binaries + GitHub Release (Docker images are handled
+#                    separately by docker-publish.yml on the same tags)
+#   - manual dispatch (artifacts only, no release)
+
+name: Release binaries
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macos-13 is the last Intel runner; macos-latest is arm64.
+          - { os: macos-latest,   target: darwin-arm64 }
+          - { os: macos-13,       target: darwin-amd64 }
+          - { os: ubuntu-latest,  target: linux-amd64 }
+          - { os: ubuntu-24.04-arm, target: linux-arm64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install build toolchain
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            sudo apt-get update && sudo apt-get install -y cmake build-essential
+          elif ! command -v cmake >/dev/null; then
+            brew install cmake
+          fi
+
+      - run: make build
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            zip -j "dist/zoom-taker-${{ matrix.target }}.zip" bin/zoom-taker
+          else
+            tar -czf "dist/zoom-taker-${{ matrix.target }}.tar.gz" -C bin zoom-taker
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zoom-taker-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist
+
+      - name: Checksums
+        run: |
+          cd dist
+          shasum -a 256 * > checksums.txt
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes

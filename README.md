@@ -38,8 +38,13 @@ Zoom meeting that allows joining from the browser client.
 
 ## Get started (macOS, Apple Silicon)
 
-Native builds use whisper.cpp with Metal (shaders are embedded in the binary —
-no runtime model files needed):
+Prebuilt binaries (macOS Apple Silicon / Intel, Linux amd64 / arm64) are
+attached to each [release](https://github.com/odg0318/zoom-taker/releases) —
+no Go toolchain needed. The Linux builds require `ffmpeg` (`apt-get install
+ffmpeg`) and `libgomp1` at runtime.
+
+To build from source, native builds use whisper.cpp with Metal (shaders are
+embedded in the binary — no runtime model files needed):
 
 ```bash
 # 1. Prerequisites (once)
