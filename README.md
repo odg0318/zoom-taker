@@ -36,10 +36,47 @@ The tab-audio capture path needs **no macOS screen-recording (TCC) permission** 
 it uses Chrome's tab-share audio. Requirements: Chrome microphone permission and a
 Zoom meeting that allows joining from the browser client.
 
-## Get started (prebuilt Docker image)
+## Get started (macOS, Apple Silicon)
 
-Multi-arch images (`linux/amd64` + `linux/arm64`) are built by GitHub Actions and
-published to Docker Hub — no local build needed:
+Native builds use whisper.cpp with Metal (shaders are embedded in the binary —
+no runtime model files needed):
+
+```bash
+# 1. Prerequisites (once)
+brew install go cmake ffmpeg
+
+# 2. Build the single binary (whisper.cpp static libs + bin/zoom-taker)
+make
+
+# 3. Download the model into ./model-cache (once, 574MB — offline afterwards)
+./bin/zoom-taker download
+
+# 4. Run the server
+./bin/zoom-taker serve          # http://localhost:8899
+```
+
+Then record a meeting:
+
+1. Open <http://localhost:8899> in Chrome and run the self-check
+2. Join the Zoom meeting in a browser tab ("Join from your browser")
+3. **Start recording** → pick the **Zoom tab** in the share picker → check
+   **Share audio** (never the whole screen)
+4. **Stop & save** — both tracks upload to `recordings/` automatically
+5. Click **Transcribe** — progress streams on the page; the transcript link
+   appears when done
+
+Transcripts land in `output/<name>-transcript.md`. CLI-only transcription of a
+single audio file (no server, no speaker labels):
+
+```bash
+./bin/zoom-taker transcribe sample_test.aiff
+```
+
+## Get started with Docker
+
+Prebuilt multi-arch images (`linux/amd64` + `linux/arm64`) are published to
+Docker Hub by GitHub Actions — no local build needed. Inside the container
+whisper.cpp runs on CPU:
 
 ```bash
 docker pull guri/zoom-taker:latest
@@ -53,9 +90,20 @@ docker run --rm -p 8899:8899 \
 ```
 
 Open <http://localhost:8899> and record — recordings and transcripts land in the
-mounted folders, and the Whisper model (GGML `large-v3-turbo` q5_0, 574MB)
-downloads into `model-cache/` on first use (the container runs offline
-afterwards). CLI-only transcription with the same image:
+mounted folders, and the model downloads into `model-cache/` on first use (the
+container runs offline afterwards). Recording and transcription work exactly as
+in the native flow above.
+
+Prefer compose, or building from source?
+
+```bash
+git clone --recurse-submodules https://github.com/odg0318/zoom-taker
+cd zoom-taker
+docker compose up --build               # http://localhost:8899
+# or: replace `build: .` with `image: guri/zoom-taker:latest` in docker-compose.yml
+```
+
+CLI-only transcription with the image:
 
 ```bash
 docker run --rm \
@@ -63,45 +111,6 @@ docker run --rm \
   -v "$PWD/output:/app/output" \
   guri/zoom-taker:latest \
   zoom-taker transcribe sample_test.aiff
-```
-
-Prefer compose? Replace `build: .` with `image: guri/zoom-taker:latest` in
-`docker-compose.yml` and run `docker compose up`.
-
-## Quick start (macOS, Apple Silicon)
-
-Native builds use whisper.cpp with Metal (shaders are embedded in the binary —
-no runtime model files needed):
-
-```bash
-brew install go cmake ffmpeg
-make                    # whisper.cpp static libs + bin/zoom-taker
-
-./bin/zoom-taker download   # downloads the model into ./model-cache (once)
-./bin/zoom-taker serve      # http://localhost:8899
-```
-
-Open <http://localhost:8899>, run the self-check, join the Zoom meeting in a
-browser tab, then: **Start recording** → pick the Zoom tab → check **Share audio**
-→ **Stop & save** (recordings upload automatically) → **Transcribe**.
-
-## Quick start (Docker, build from source)
-
-```bash
-git clone --recurse-submodules https://github.com/odg0318/zoom-taker
-cd zoom-taker
-docker compose up --build               # http://localhost:8899
-```
-
-`model-cache/`, `recordings/`, and `output/` are volume-mounted, so recordings,
-transcripts, and the downloaded model all persist on the host. Inside the Linux
-container whisper.cpp runs on CPU; the first transcription downloads the model
-into `./model-cache/` — afterwards the container runs offline.
-
-Transcribe without the browser:
-
-```bash
-docker compose run --rm zoom-taker zoom-taker transcribe sample_test.aiff
 ```
 
 ## CLI
