@@ -1,3 +1,0 @@
-# macOS native (Apple Silicon) STT backend
-mlx-whisper
-huggingface_hub

@@ -1,3 +1,0 @@
-# Docker / Linux (CPU) STT backend — CTranslate2 based, no torch needed
-faster-whisper>=1.1
-huggingface_hub
