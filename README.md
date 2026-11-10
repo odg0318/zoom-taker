@@ -140,6 +140,10 @@ zoom-taker download [model]      # fetch the GGML model into the cache
   language passes only — no silence/energy filters, no speaker merge. Use
   `meeting <name>` for the full cleaned, speaker-labeled pipeline over a
   recorded meeting's track pair.
+- Before transcription starts, `meeting` and `transcribe` print an estimate of
+  the wall time (audio length, number of language passes, platform speed). It
+  errs on the slow side — on Apple Silicon Metal the real time is usually well
+  under it.
 
 All commands accept `--language` (where it applies) and read the standard
 configuration from the environment.

@@ -61,15 +61,12 @@ func findTrack(recordingsDir, name, suffix string) string {
 	return ""
 }
 
-// transcribeOne runs the full per-track flow: duration + silence detection
-// up front, one whisper pass per language (decoded once; the secondary pass
-// fills regions the primary missed), then the hallucination filters.
-func transcribeOne(ctx context.Context, engine stt.Engine, path string, langs []string,
-	log func(string)) ([]Segment, error) {
-	duration, err := audio.Duration(path)
-	if err != nil {
-		return nil, err
-	}
+// transcribeOne runs the full per-track flow: silence detection up front,
+// one whisper pass per language (decoded once; the secondary pass fills
+// regions the primary missed), then the hallucination filters. The duration
+// is probed by the caller and passed in.
+func transcribeOne(ctx context.Context, engine stt.Engine, path string, duration float64,
+	langs []string, log func(string)) ([]Segment, error) {
 	silence, err := audio.SilenceRanges(ctx, path, SilenceNoiseDB, SilenceMinDur)
 	if err != nil {
 		return nil, err
@@ -112,6 +109,11 @@ func Meeting(ctx context.Context, engine stt.Engine, name string, opts Options) 
 
 	tracks := make(map[string][]Segment, 2)
 	var missing []string
+	var tasks []struct {
+		label    string
+		path     string
+		duration float64
+	}
 	for _, t := range trackSuffixes {
 		path := ""
 		for _, suffix := range t.Suffixes {
@@ -123,19 +125,38 @@ func Meeting(ctx context.Context, engine stt.Engine, name string, opts Options) 
 			missing = append(missing, t.Label)
 			continue
 		}
-		segs, err := transcribeOne(ctx, engine, path, langs, log)
+		dur, err := audio.Duration(path)
 		if err != nil {
 			return "", err
 		}
-		tracks[t.Label] = segs
+		tasks = append(tasks, struct {
+			label    string
+			path     string
+			duration float64
+		}{t.Label, path, dur})
 	}
 
-	if len(tracks) == 0 {
+	if len(tasks) == 0 {
 		return "", fmt.Errorf("No track files found for '%s' — expected recordings/%s-{system|remote|mic|me}{.caf|.webm|.m4a|.wav}", name, name)
 	}
 	if len(missing) > 0 {
 		sort.Strings(missing) // "ME" before "REMOTE", like Python's sorted set
 		emit(log, fmt.Sprintf("warning: no %s track found — transcribing without it", strings.Join(missing, "/")))
+	}
+
+	var totalAudio float64
+	for _, t := range tasks {
+		totalAudio += t.duration
+	}
+	emit(log, fmt.Sprintf("estimate: %.0fs of audio, %d %s per track — transcription may take about %s",
+		totalAudio, len(langs), passWord(len(langs)), FormatEstimate(EstimateSeconds(totalAudio, len(langs)))))
+
+	for _, t := range tasks {
+		segs, err := transcribeOne(ctx, engine, t.path, t.duration, langs, log)
+		if err != nil {
+			return "", err
+		}
+		tracks[t.label] = segs
 	}
 
 	merged := merge(tracks["REMOTE"], tracks["ME"])

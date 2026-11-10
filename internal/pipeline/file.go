@@ -29,6 +29,10 @@ func TranscribeFile(ctx context.Context, engine stt.Engine, path, language strin
 			return "", fmt.Errorf("File not found: %s", path)
 		}
 	}
+	if duration, err := audio.Duration(path); err == nil {
+		emit(log, fmt.Sprintf("estimate: %.0fs of audio, %d %s — transcription may take about %s",
+			duration, len(langs), passWord(len(langs)), FormatEstimate(EstimateSeconds(duration, len(langs)))))
+	}
 
 	samples, err := audio.Decode(ctx, path)
 	if err != nil {
