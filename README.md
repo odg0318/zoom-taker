@@ -48,7 +48,7 @@ brew install go cmake ffmpeg
 # 2. Build the single binary (whisper.cpp static libs + bin/zoom-taker)
 make
 
-# 3. Run — the first run creates ./.zoom-taker/ and downloads the model
+# 3. Run — the first run creates ~/.zoom-taker/ and downloads the model
 #    (574MB; confirmed with Y/n in a terminal, automatic in scripts/Docker)
 ./bin/zoom-taker serve          # http://localhost:8899
 ```
@@ -167,7 +167,7 @@ Docker names):
 | variable | default | meaning |
 |----------|---------|---------|
 | `WHISPER_MODEL` | `ggml-large-v3-turbo-q5_0.bin` | GGML file name in the HF `ggerganov/whisper.cpp` repo, or a path to a local `.bin` |
-| `ZOOM_TAKER_DATA_DIR` | `./.zoom-taker` | base directory for generated files — `model-cache/`, `recordings/`, `output/` are created inside |
+| `ZOOM_TAKER_DATA_DIR` | `~/.zoom-taker` | base directory for generated files — `model-cache/`, `recordings/`, `output/` are created inside |
 | `ZOOM_TAKER_MODEL_CACHE_DIR` | `$ZOOM_TAKER_DATA_DIR/model-cache` | local model cache (safe to copy between machines) |
 | `ZOOM_TAKER_RECORDINGS_DIR` | `$ZOOM_TAKER_DATA_DIR/recordings` | where uploads are stored |
 | `ZOOM_TAKER_OUTPUT_DIR` | `$ZOOM_TAKER_DATA_DIR/output` | where transcripts are written |

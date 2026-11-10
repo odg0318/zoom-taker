@@ -53,13 +53,16 @@ func envInt(key string, def int) int {
 
 // Load reads the environment. Canonical names (WHISPER_MODEL,
 // TRANSCRIBE_LANGUAGE) win over the short compose aliases (MODEL, LANGUAGE).
-// Generated files default to a single hidden base directory (.zoom-taker,
+// Generated files default to a single hidden base directory (~/.zoom-taker,
 // overridable via ZOOM_TAKER_DATA_DIR); ZOOM_TAKER_MODEL_CACHE_DIR /
 // ZOOM_TAKER_RECORDINGS_DIR / ZOOM_TAKER_OUTPUT_DIR override each location
 // individually. HF_ENDPOINT/HF_TOKEN keep their ecosystem-standard names.
 func Load() Config {
-	wd, _ := os.Getwd()
-	base := env("ZOOM_TAKER_DATA_DIR", "", filepath.Join(wd, ".zoom-taker"))
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = "."
+	}
+	base := env("ZOOM_TAKER_DATA_DIR", "", filepath.Join(home, ".zoom-taker"))
 	return Config{
 		Host:          env("HOST", "", "127.0.0.1"),
 		Port:          envInt("PORT", 8899),

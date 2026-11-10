@@ -25,7 +25,7 @@ is the user-facing doc and configuration reference.
 - [x] Docker multi-stage CGO build (native build verified; compose E2E skipped
       this round per user — macOS runs the native Metal binary, CI builds the
       images on push)
-- [x] First-run wizard on serve (internal/setup): creates the .zoom-taker data
+- [x] First-run wizard on serve (internal/setup): creates the ~/.zoom-taker data
       dirs and downloads the model — Y/n prompt on a real terminal, automatic
       for pipes//dev/null/Docker, opt-out via `serve --no-setup`; resumable
       .part download verified live
@@ -57,8 +57,9 @@ record-zoom.html        # browser 2-track recorder (wire-compat client, embedded
 sample_test.aiff        # synthetic TTS sample for smoke tests (tracked on purpose)
 Dockerfile / docker-compose.yml / .dockerignore
 .github/workflows/docker-publish.yml  # multi-arch image → Docker Hub (guri/zoom-taker)
-.zoom-taker/            # generated files (gitignored): model-cache/, recordings/, output/
-                        # base relocated via ZOOM_TAKER_DATA_DIR; ZOOM_TAKER_*_DIR vars override per-dir
+~/.zoom-taker/          # generated files: model-cache/, recordings/, output/ (gitignored pattern,
+                        # any location) — default base is the user's home, relocated via
+                        # ZOOM_TAKER_DATA_DIR; ZOOM_TAKER_*_DIR vars override per-dir
 build/ bin/             # whisper.cpp build staging + binary (gitignored)
 ```
 
@@ -68,8 +69,8 @@ build/ bin/             # whisper.cpp build staging + binary (gitignored)
 - go 1.27.3 (Homebrew), cmake, ffmpeg (ffmpeg-full), Docker Desktop
 - whisper.cpp v1.9.5 built static; Metal shaders embedded (GGML_METAL_EMBED_LIBRARY
   default ON — never override Apple cmake defaults)
-- Model: ggml-large-v3-turbo-q5_0.bin (574MB) in .zoom-taker/model-cache/ — HF
-  repo ggerganov/whisper.cpp, direct resolve download (302→CDN, Range resume)
+- Model: ggml-large-v3-turbo-q5_0.bin (574MB) in ~/.zoom-taker/model-cache/ —
+  HF repo ggerganov/whisper.cpp, direct resolve download (302→CDN, Range resume)
 
 ## Build & run (verified)
 

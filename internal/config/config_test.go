@@ -25,6 +25,27 @@ func TestDirectoryDefaults(t *testing.T) {
 	}
 }
 
+func TestDataDirDefaultsToHome(t *testing.T) {
+	for _, k := range []string{
+		"ZOOM_TAKER_DATA_DIR", "ZOOM_TAKER_MODEL_CACHE_DIR",
+		"ZOOM_TAKER_RECORDINGS_DIR", "ZOOM_TAKER_OUTPUT_DIR",
+	} {
+		t.Setenv(k, "")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home) // os.UserHomeDir reads $HOME on unix
+	cfg := Load()
+	for _, c := range []struct{ got, want string }{
+		{cfg.ModelCacheDir, filepath.Join(home, ".zoom-taker", "model-cache")},
+		{cfg.RecordingsDir, filepath.Join(home, ".zoom-taker", "recordings")},
+		{cfg.OutputDir, filepath.Join(home, ".zoom-taker", "output")},
+	} {
+		if c.got != c.want {
+			t.Errorf("dir = %q, want %q", c.got, c.want)
+		}
+	}
+}
+
 func TestBaseDirOverride(t *testing.T) {
 	for _, k := range []string{
 		"ZOOM_TAKER_MODEL_CACHE_DIR", "ZOOM_TAKER_RECORDINGS_DIR", "ZOOM_TAKER_OUTPUT_DIR",
