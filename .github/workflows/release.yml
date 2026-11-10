@@ -26,9 +26,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macos-13 is the last Intel runner; macos-latest is arm64.
+          # macos-latest is arm64 (Apple Silicon only — Intel Macs are not
+          # targeted).
           - { os: macos-latest,   target: darwin-arm64 }
-          - { os: macos-13,       target: darwin-amd64 }
           - { os: ubuntu-latest,  target: linux-amd64 }
           - { os: ubuntu-24.04-arm, target: linux-arm64 }
     runs-on: ${{ matrix.os }}
