@@ -54,17 +54,18 @@ func envInt(key string, def int) int {
 // Load reads the environment. Canonical names (WHISPER_MODEL,
 // TRANSCRIBE_LANGUAGE) win over the short compose aliases (MODEL, LANGUAGE).
 // Generated files default to a single hidden base directory (.zoom-taker,
-// overridable via ZOOM_TAKER_DIR); MODEL_CACHE_DIR / RECORDINGS_DIR /
-// OUTPUT_DIR override each location individually.
+// overridable via ZOOM_TAKER_DATA_DIR); ZOOM_TAKER_MODEL_CACHE_DIR /
+// ZOOM_TAKER_RECORDINGS_DIR / ZOOM_TAKER_OUTPUT_DIR override each location
+// individually. HF_ENDPOINT/HF_TOKEN keep their ecosystem-standard names.
 func Load() Config {
 	wd, _ := os.Getwd()
-	base := env("ZOOM_TAKER_DIR", "", filepath.Join(wd, ".zoom-taker"))
+	base := env("ZOOM_TAKER_DATA_DIR", "", filepath.Join(wd, ".zoom-taker"))
 	return Config{
 		Host:          env("HOST", "", "127.0.0.1"),
 		Port:          envInt("PORT", 8899),
-		ModelCacheDir: env("MODEL_CACHE_DIR", "", filepath.Join(base, "model-cache")),
-		RecordingsDir: env("RECORDINGS_DIR", "", filepath.Join(base, "recordings")),
-		OutputDir:     env("OUTPUT_DIR", "", filepath.Join(base, "output")),
+		ModelCacheDir: env("ZOOM_TAKER_MODEL_CACHE_DIR", "", filepath.Join(base, "model-cache")),
+		RecordingsDir: env("ZOOM_TAKER_RECORDINGS_DIR", "", filepath.Join(base, "recordings")),
+		OutputDir:     env("ZOOM_TAKER_OUTPUT_DIR", "", filepath.Join(base, "output")),
 		Language:      env("TRANSCRIBE_LANGUAGE", "LANGUAGE", "kr"),
 		Model:         env("WHISPER_MODEL", "MODEL", DefaultModel),
 		MaxUploadMB:   envInt("MAX_UPLOAD_MB", 2048),

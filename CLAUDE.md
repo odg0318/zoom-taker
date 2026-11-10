@@ -54,7 +54,7 @@ sample_test.aiff        # synthetic TTS sample for smoke tests (tracked on purpo
 Dockerfile / docker-compose.yml / .dockerignore
 .github/workflows/docker-publish.yml  # multi-arch image → Docker Hub (guri/zoom-taker)
 .zoom-taker/            # generated files (gitignored): model-cache/, recordings/, output/
-                        # base relocated via ZOOM_TAKER_DIR; MODEL_CACHE_DIR etc. override per-dir
+                        # base relocated via ZOOM_TAKER_DATA_DIR; ZOOM_TAKER_*_DIR vars override per-dir
 build/ bin/             # whisper.cpp build staging + binary (gitignored)
 ```
 

@@ -32,9 +32,9 @@ COPY --from=build /src/bin/zoom-taker /usr/local/bin/zoom-taker
 
 ENV HOST=0.0.0.0 \
     PORT=8899 \
-    MODEL_CACHE_DIR=/app/model-cache \
-    RECORDINGS_DIR=/app/recordings \
-    OUTPUT_DIR=/app/output
+    ZOOM_TAKER_MODEL_CACHE_DIR=/app/model-cache \
+    ZOOM_TAKER_RECORDINGS_DIR=/app/recordings \
+    ZOOM_TAKER_OUTPUT_DIR=/app/output
 
 EXPOSE 8899
 CMD ["zoom-taker", "serve"]

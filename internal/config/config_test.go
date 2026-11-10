@@ -7,7 +7,10 @@ import (
 )
 
 func TestDirectoryDefaults(t *testing.T) {
-	for _, k := range []string{"ZOOM_TAKER_DIR", "MODEL_CACHE_DIR", "RECORDINGS_DIR", "OUTPUT_DIR"} {
+	for _, k := range []string{
+		"ZOOM_TAKER_DATA_DIR", "ZOOM_TAKER_MODEL_CACHE_DIR",
+		"ZOOM_TAKER_RECORDINGS_DIR", "ZOOM_TAKER_OUTPUT_DIR",
+	} {
 		t.Setenv(k, "")
 	}
 	cfg := Load()
@@ -23,10 +26,12 @@ func TestDirectoryDefaults(t *testing.T) {
 }
 
 func TestBaseDirOverride(t *testing.T) {
-	for _, k := range []string{"MODEL_CACHE_DIR", "RECORDINGS_DIR", "OUTPUT_DIR"} {
+	for _, k := range []string{
+		"ZOOM_TAKER_MODEL_CACHE_DIR", "ZOOM_TAKER_RECORDINGS_DIR", "ZOOM_TAKER_OUTPUT_DIR",
+	} {
 		t.Setenv(k, "")
 	}
-	t.Setenv("ZOOM_TAKER_DIR", "/data/zt")
+	t.Setenv("ZOOM_TAKER_DATA_DIR", "/data/zt")
 	cfg := Load()
 	for _, c := range []struct{ got, want string }{
 		{cfg.ModelCacheDir, "/data/zt/model-cache"},
@@ -40,10 +45,10 @@ func TestBaseDirOverride(t *testing.T) {
 }
 
 func TestPerDirOverridesBeatBase(t *testing.T) {
-	t.Setenv("ZOOM_TAKER_DIR", "/data/zt")
-	t.Setenv("MODEL_CACHE_DIR", "")
-	t.Setenv("RECORDINGS_DIR", "/custom/rec")
-	t.Setenv("OUTPUT_DIR", "")
+	t.Setenv("ZOOM_TAKER_DATA_DIR", "/data/zt")
+	t.Setenv("ZOOM_TAKER_MODEL_CACHE_DIR", "")
+	t.Setenv("ZOOM_TAKER_RECORDINGS_DIR", "/custom/rec")
+	t.Setenv("ZOOM_TAKER_OUTPUT_DIR", "")
 	cfg := Load()
 	if cfg.ModelCacheDir != "/data/zt/model-cache" {
 		t.Errorf("ModelCacheDir = %q", cfg.ModelCacheDir)

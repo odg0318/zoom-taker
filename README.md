@@ -165,10 +165,10 @@ Docker names):
 | variable | default | meaning |
 |----------|---------|---------|
 | `WHISPER_MODEL` | `ggml-large-v3-turbo-q5_0.bin` | GGML file name in the HF `ggerganov/whisper.cpp` repo, or a path to a local `.bin` |
-| `ZOOM_TAKER_DIR` | `./.zoom-taker` | base directory for generated files — `model-cache/`, `recordings/`, `output/` are created inside |
-| `MODEL_CACHE_DIR` | `$ZOOM_TAKER_DIR/model-cache` | local model cache (safe to copy between machines) |
-| `RECORDINGS_DIR` | `$ZOOM_TAKER_DIR/recordings` | where uploads are stored |
-| `OUTPUT_DIR` | `$ZOOM_TAKER_DIR/output` | where transcripts are written |
+| `ZOOM_TAKER_DATA_DIR` | `./.zoom-taker` | base directory for generated files — `model-cache/`, `recordings/`, `output/` are created inside |
+| `ZOOM_TAKER_MODEL_CACHE_DIR` | `$ZOOM_TAKER_DATA_DIR/model-cache` | local model cache (safe to copy between machines) |
+| `ZOOM_TAKER_RECORDINGS_DIR` | `$ZOOM_TAKER_DATA_DIR/recordings` | where uploads are stored |
+| `ZOOM_TAKER_OUTPUT_DIR` | `$ZOOM_TAKER_DATA_DIR/output` | where transcripts are written |
 | `TRANSCRIBE_LANGUAGE` | `kr` | `kr`/`en`/`cn` or a combo like `kr+en` |
 | `HF_ENDPOINT` | — | HuggingFace-compatible endpoint (mirror/proxy) |
 | `HF_TOKEN` | — | HuggingFace token (private mirrors only; the model repo is public) |
@@ -200,8 +200,8 @@ export HF_ENDPOINT='https://your-hf-mirror.example.com'
 ./bin/zoom-taker download
 ```
 
-The model lives entirely in `MODEL_CACHE_DIR` — copy that directory to the
-target machine (or mount it as a Docker volume) and every later run works
+The model lives entirely in `ZOOM_TAKER_MODEL_CACHE_DIR` — copy that directory
+to the target machine (or mount it as a Docker volume) and every later run works
 offline without touching the mirror.
 
 ## Known limitations
