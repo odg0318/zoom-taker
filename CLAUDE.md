@@ -25,6 +25,10 @@ is the user-facing doc and configuration reference.
 - [x] Docker multi-stage CGO build (native build verified; compose E2E skipped
       this round per user — macOS runs the native Metal binary, CI builds the
       images on push)
+- [x] First-run wizard on serve (internal/setup): creates the .zoom-taker data
+      dirs and downloads the model — Y/n prompt on a real terminal, automatic
+      for pipes//dev/null/Docker, opt-out via `serve --no-setup`; resumable
+      .part download verified live
 - [ ] Real-world 10min+ meeting endurance test (dropouts/silence/track drift —
       longest verified session is 112s)
 - [ ] Echo dedup improvement: mic segment that is a partial substring of a system
@@ -73,7 +77,7 @@ build/ bin/             # whisper.cpp build staging + binary (gitignored)
 make build              # whisper.cpp libs → build/stage → bin/zoom-taker (cgo, -tags whisper)
 make test               # full suite incl. cgo engine tests
 make test-pure          # go build/test without C toolchain (all cgo behind the "whisper" tag)
-./bin/zoom-taker serve  # http://localhost:8899  (Docker: docker compose up --build)
+./bin/zoom-taker serve  # http://localhost:8899; first run = setup wizard (dirs + model)
 ./bin/zoom-taker meeting <name> [--language kr|en|cn|kr+en]
 ./bin/zoom-taker transcribe <file> [--language ...]
 ./bin/zoom-taker download [model]

@@ -1,7 +1,8 @@
 // Command zoom-taker is the single Go binary replacing the Python pipeline:
 //
 //	zoom-taker                       serve (default)
-//	zoom-taker serve                 web server + recorder page
+//	zoom-taker serve [--no-setup]    web server + recorder page; first run
+//	                                 creates the data dirs and fetches the model
 //	zoom-taker meeting <name>        full meeting pipeline (filters + merge)
 //	zoom-taker transcribe <file>     single-file transcription
 //	zoom-taker download [model]      download the GGML model into the cache
@@ -20,6 +21,7 @@ import (
 	"github.com/odg0318/zoom-taker/internal/modelcache"
 	"github.com/odg0318/zoom-taker/internal/pipeline"
 	"github.com/odg0318/zoom-taker/internal/server"
+	"github.com/odg0318/zoom-taker/internal/setup"
 	"github.com/odg0318/zoom-taker/internal/stt"
 )
 
@@ -34,7 +36,7 @@ func main() {
 	var err error
 	switch cmd {
 	case "serve":
-		err = cmdServe(cfg)
+		err = cmdServe(cfg, args)
 	case "meeting":
 		err = cmdMeeting(cfg, args)
 	case "transcribe":
@@ -74,8 +76,28 @@ func engineFactory(cfg config.Config, log func(string)) func() (stt.Engine, erro
 	}
 }
 
-func cmdServe(cfg config.Config) error {
+func cmdServe(cfg config.Config, args []string) error {
+	fs := flag.NewFlagSet("serve", flag.ExitOnError)
+	noSetup := fs.Bool("no-setup", false, "skip the first-run wizard (dir creation + model download)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if !*noSetup {
+		if err := setup.Ensure(context.Background(), cfg, os.Stdin, stdinIsTerminal(),
+			func(s string) { fmt.Println(s) }); err != nil {
+			// Keep serving: recording works, transcription jobs surface the
+			// same model error on use.
+			fmt.Println("warning:", err)
+		}
+	}
 	return server.Run(cfg, app.HTML, engineFactory(cfg, func(s string) { fmt.Println(s) }))
+}
+
+// stdinIsTerminal reports whether the wizard may prompt: a char device
+// stdin means a human terminal; pipes/files/Docker attach are automated.
+func stdinIsTerminal() bool {
+	st, err := os.Stdin.Stat()
+	return err == nil && st.Mode()&os.ModeCharDevice != 0
 }
 
 func cmdMeeting(cfg config.Config, args []string) error {

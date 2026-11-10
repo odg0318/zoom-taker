@@ -48,12 +48,14 @@ brew install go cmake ffmpeg
 # 2. Build the single binary (whisper.cpp static libs + bin/zoom-taker)
 make
 
-# 3. Download the model into ./.zoom-taker/model-cache (once, 574MB — offline afterwards)
-./bin/zoom-taker download
-
-# 4. Run the server
+# 3. Run — the first run creates ./.zoom-taker/ and downloads the model
+#    (574MB; confirmed with Y/n in a terminal, automatic in scripts/Docker)
 ./bin/zoom-taker serve          # http://localhost:8899
 ```
+
+`./bin/zoom-taker download` pre-fetches the model manually (e.g. on a machine
+with network access, for later offline use), and `serve --no-setup` skips the
+first-run wizard.
 
 Then record a meeting:
 
@@ -90,9 +92,9 @@ docker run --rm -p 8899:8899 \
 ```
 
 Open <http://localhost:8899> and record — recordings and transcripts land in the
-mounted folders, and the model downloads into `model-cache/` on first use (the
-container runs offline afterwards). Recording and transcription work exactly as
-in the native flow above.
+mounted folders, and the model downloads into `model-cache/` on first use
+(automatic, no prompt in containers; the container runs offline afterwards).
+Recording and transcription work exactly as in the native flow above.
 
 Prefer compose, or building from source?
 
@@ -117,7 +119,7 @@ docker run --rm \
 
 ```bash
 zoom-taker                       # serve (default)
-zoom-taker serve                 # web server + recorder page
+zoom-taker serve [--no-setup]    # web server + recorder page; first run runs the setup wizard
 zoom-taker meeting <name>        # full pipeline over recordings/<name>-{system|remote|mic|me}.{caf|webm|m4a|wav}
 zoom-taker transcribe <file>     # single audio file, no speaker labels
 zoom-taker download [model]      # fetch the GGML model into the cache

@@ -61,6 +61,30 @@ func Resolve(ctx context.Context, spec, cacheDir, endpoint, token string, log fu
 	return bin, nil
 }
 
+// CachedPath reports where spec resolves offline today: an existing path
+// spec or a cache-valid bare model name returns its file path; anything that
+// would need a download returns "". Same rules as Resolve's cache check,
+// without any network activity.
+func CachedPath(spec, cacheDir string, log func(string)) string {
+	if spec == "" {
+		return ""
+	}
+	if strings.ContainsRune(spec, '/') || strings.ContainsRune(spec, filepath.Separator) {
+		if st, err := os.Stat(spec); err == nil && !st.IsDir() {
+			return spec
+		}
+		return ""
+	}
+	if !strings.HasSuffix(spec, ".bin") {
+		return ""
+	}
+	bin := filepath.Join(cacheDir, spec)
+	if cached(bin, log) {
+		return bin
+	}
+	return ""
+}
+
 // cached reports whether bin is a complete download. Offline-first: any
 // match short-circuits before any network activity.
 func cached(bin string, log func(string)) bool {
