@@ -125,6 +125,15 @@ zoom-taker download [model]      # fetch the GGML model into the cache
 ./bin/zoom-taker transcribe sample_test.aiff   # smoke test with the bundled sample
 ```
 
+- `transcribe <file>` requires exactly one file. A bare filename that doesn't
+  exist as given is looked up in `recordings/` automatically, so
+  `zoom-taker transcribe meeting-2026-11-09-22-05-remote.webm` works from
+  anywhere.
+- Output is always `output/<file-stem>-transcript.md`. `transcribe` runs the
+  language passes only — no silence/energy filters, no speaker merge. Use
+  `meeting <name>` for the full cleaned, speaker-labeled pipeline over a
+  recorded meeting's track pair.
+
 All commands accept `--language` (where it applies) and read the standard
 configuration from the environment.
 
