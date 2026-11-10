@@ -53,8 +53,8 @@ record-zoom.html        # browser 2-track recorder (wire-compat client, embedded
 sample_test.aiff        # synthetic TTS sample for smoke tests (tracked on purpose)
 Dockerfile / docker-compose.yml / .dockerignore
 .github/workflows/docker-publish.yml  # multi-arch image → Docker Hub (guri/zoom-taker)
-model-cache/            # GGML model cache (gitignored — copy between machines)
-recordings/ output/     # gitignored meeting data
+.zoom-taker/            # generated files (gitignored): model-cache/, recordings/, output/
+                        # base relocated via ZOOM_TAKER_DIR; MODEL_CACHE_DIR etc. override per-dir
 build/ bin/             # whisper.cpp build staging + binary (gitignored)
 ```
 
@@ -64,8 +64,8 @@ build/ bin/             # whisper.cpp build staging + binary (gitignored)
 - go 1.27.3 (Homebrew), cmake, ffmpeg (ffmpeg-full), Docker Desktop
 - whisper.cpp v1.9.5 built static; Metal shaders embedded (GGML_METAL_EMBED_LIBRARY
   default ON — never override Apple cmake defaults)
-- Model: ggml-large-v3-turbo-q5_0.bin (574MB) in model-cache/ — HF repo
-  ggerganov/whisper.cpp, direct resolve download (302→CDN, Range resume)
+- Model: ggml-large-v3-turbo-q5_0.bin (574MB) in .zoom-taker/model-cache/ — HF
+  repo ggerganov/whisper.cpp, direct resolve download (302→CDN, Range resume)
 
 ## Build & run (verified)
 

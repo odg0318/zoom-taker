@@ -12,3 +12,9 @@ build/
 .DS_Store
 # leftover from the removed Python implementation (kept on disk, ignored)
 .venv/
+# all generated files default under here (ZOOM_TAKER_DIR relocates it)
+.zoom-taker/
+# legacy top-level locations (pre-.zoom-taker layout)
+model-cache/
+output/
+recordings/
