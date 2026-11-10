@@ -7,4 +7,6 @@ build/
 *.caf
 *.wav
 *.webm
+# committed test fixtures for the pipeline unit tests
+!internal/pipeline/testdata/*.wav
 .DS_Store

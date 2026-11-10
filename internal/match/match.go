@@ -11,10 +11,10 @@ import (
 	"github.com/pmezard/go-difflib/difflib"
 )
 
-// normalize strips whitespace and punctuation the way the Python pipeline
+// Normalize strips whitespace and punctuation the way the Python pipeline
 // did (re.sub(r"[\s.,!?~'\"…]+", "", text)), preserving case. Unicode's
 // whitespace set stands in for the regex \s class.
-func normalize(text string) string {
+func Normalize(text string) string {
 	out := make([]rune, 0, len(text))
 	for _, r := range text {
 		if unicode.IsSpace(r) {
@@ -42,6 +42,6 @@ func Ratio(a, b string) float64 {
 		}
 		return out
 	}
-	m := difflib.NewMatcher(elems(normalize(a)), elems(normalize(b)))
+	m := difflib.NewMatcher(elems(Normalize(a)), elems(Normalize(b)))
 	return m.Ratio()
 }
