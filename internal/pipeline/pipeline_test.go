@@ -320,3 +320,23 @@ func TestTranscribeFile(t *testing.T) {
 		t.Fatalf("error = %v, want file-not-found", err)
 	}
 }
+
+func TestNormalizeName(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"meeting-2026-11-09-22-05", "meeting-2026-11-09-22-05"},
+		{"./recordings/meeting-2026-11-09-22-05", "meeting-2026-11-09-22-05"},
+		{"/abs/dir/meeting-x", "meeting-x"},
+		{"recordings/foo-remote.webm", "foo"},
+		{"foo-system.m4a", "foo"},
+		{"./recordings/bar-mic.caf", "bar"},
+		{"/x/y/baz-me.wav", "baz"},
+		{"trailing/", "trailing"},
+		// a meeting genuinely named "…-me" (no extension) must survive
+		{"podcast-me", "podcast-me"},
+	}
+	for _, c := range cases {
+		if got := NormalizeName(c.in); got != c.want {
+			t.Errorf("NormalizeName(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}

@@ -23,6 +23,24 @@ var trackSuffixes = []struct {
 
 var trackExts = []string{".caf", ".webm", ".m4a", ".wav"}
 
+// NormalizeName reduces a user-supplied argument to the bare meeting name:
+// a path is stripped to its base ("recordings/foo" → "foo"), and a full track
+// filename additionally loses its extension and speaker suffix
+// ("recordings/foo-remote.webm" → "foo"). A name without an audio extension
+// is taken as-is, so a meeting legitimately named "…-me" survives.
+func NormalizeName(raw string) string {
+	name := filepath.Base(strings.TrimRight(raw, "/"))
+	if ext := filepath.Ext(name); ext != "" {
+		name = strings.TrimSuffix(name, ext)
+		for _, t := range trackSuffixes {
+			for _, suffix := range t.Suffixes {
+				name = strings.TrimSuffix(name, "-"+suffix)
+			}
+		}
+	}
+	return name
+}
+
 // Options carries the directories and settings Meeting/TranscribeFile need.
 type Options struct {
 	RecordingsDir string

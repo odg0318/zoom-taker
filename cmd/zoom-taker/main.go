@@ -92,7 +92,7 @@ func cmdMeeting(cfg config.Config, args []string) error {
 	if err != nil {
 		return err
 	}
-	_, err = pipeline.Meeting(context.Background(), eng, fs.Arg(0), pipeline.Options{
+	_, err = pipeline.Meeting(context.Background(), eng, pipeline.NormalizeName(fs.Arg(0)), pipeline.Options{
 		RecordingsDir: cfg.RecordingsDir,
 		OutputDir:     cfg.OutputDir,
 		Language:      *language,
